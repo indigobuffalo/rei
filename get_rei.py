@@ -6,12 +6,6 @@ from bs4 import BeautifulSoup
 from pprint import pprint
 from typing import Dict, List, Tuple, Union
 
-BASE_URL = "https://www.rei.com/stores/{store}.html"
-BASE_URL_2 = "https://www.rei.com/events/86150/members-only-garage-sale/"
-
-GS_BLOB_START = '"name" : "members only garage sale!",'
-GS_BLOB_END = u'"addresscountry" : "us"'
-
 STORE_MAP = {
     "berkeley": "269055",
     "concord":  "265815",
@@ -19,6 +13,10 @@ STORE_MAP = {
     "sf":       "266084",
 }
 
+BASE_URL = "https://www.rei.com/events/86150/members-only-garage-sale/"
+
+GS_BLOB_START = '"name" : "members only garage sale!",'
+GS_BLOB_END = u'"addresscountry" : "us"'
 
 def contains_key_detail(line):
     key_details = [
@@ -61,43 +59,51 @@ def scrub_key_val(key_and_val: List[str]) -> Tuple[str, str]:
 
     return k_scrubbed, v_scrubbed
 
-def get_garage_sale_dates(store, debug:bool = False) -> Union[Dict, List]:
-    resp = requests.get(BASE_URL_2 + STORE_MAP[store])
+def get_response_as_lines_of_text(store: str) -> List[str]:
+    resp = requests.get(BASE_URL + STORE_MAP[store.lower()])
     resp.raise_for_status()
+    text = BeautifulSoup(resp.content, 'html.parser').get_text()
+    return [line.strip().lower() for line in text.split('\n')]
 
-    soup = BeautifulSoup(resp.content, 'html.parser')
-    text = soup.get_text()
-    text_lines = [line.strip().lower() for line in text.split('\n')]
-
-    gs_lines = []
+def get_garage_sale_dates(store) -> Dict:
+    text_lines = get_response_as_lines_of_text(store)
     garage_sale = {}
     found_garage_sale = False
     for line in text_lines:
         if found_garage_sale:
-            if debug:
-                gs_lines.append(line)
-            else:
-                if contains_key_detail(line):
-                    k, v = scrub_key_val(line.split(':', 1))
-                    garage_sale[k] = v
+            if contains_key_detail(line):
+                k, v = scrub_key_val(line.split(':', 1))
+                garage_sale[k] = v
             if line == GS_BLOB_END:
                 break
         if line == GS_BLOB_START:
             found_garage_sale = True
-    return gs_lines if debug else garage_sale
+    return garage_sale
 
-def main(stores: List, debug: bool = False) -> None:
+def get_garage_sale_dates_debug(store) -> List[str]:
+    text_lines = get_response_as_lines_of_text(store)
+    garage_sale = []
+    found_garage_sale = False
+    for line in text_lines:
+        if found_garage_sale:
+            garage_sale.append(line)
+            if line == GS_BLOB_END:
+                break
+        if line == GS_BLOB_START:
+            found_garage_sale = True
+    return garage_sale
+
+def main(stores: List, debug:bool = False) -> None:
     for store in stores:
-      details = get_garage_sale_dates(store, debug)
-      if debug:
-          pprint(details)
-      else:
-          pprint(prettify_dict(details))
-          print('\n')
-
+        if debug:
+            details = get_garage_sale_dates_debug(store)
+            pprint(details)
+        else:
+            details = get_garage_sale_dates(store)
+            pprint(prettify_dict(details))
+        print('\n')
 
 
 if __name__ == "__main__":
     stores = sys.argv[1:] if len(sys.argv) > 1 else list(STORE_MAP.keys())
-    main(stores)
-#     main(stores, True)
+    main(stores, debug=False)
