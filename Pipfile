@@ -12,6 +12,7 @@ flask = "*"
 asyncio = "*"
 requests = "*"
 beautifulsoup4 = "*"
+docopt = "*"
 
 [requires]
 python_version = "3.7"

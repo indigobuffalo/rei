@@ -78,7 +78,7 @@ def get_garage_sale_dates(store) -> Dict:
                 break
         if line == GS_BLOB_START:
             found_garage_sale = True
-    return garage_sale
+    return prettify_dict(garage_sale)
 
 def get_garage_sale_dates_debug(store) -> List[str]:
     text_lines = get_response_as_lines_of_text(store)
@@ -95,15 +95,18 @@ def get_garage_sale_dates_debug(store) -> List[str]:
 
 def main(stores: List, debug:bool = False) -> None:
     for store in stores:
+        print("\n")
         if debug:
             details = get_garage_sale_dates_debug(store)
-            pprint(details)
         else:
             details = get_garage_sale_dates(store)
-            pprint(prettify_dict(details))
-        print('\n')
+        pprint(details)
 
 
 if __name__ == "__main__":
+    debug =  "debug" in sys.argv
+    if debug:
+        sys.argv.remove("debug")
     stores = sys.argv[1:] if len(sys.argv) > 1 else list(STORE_MAP.keys())
-    main(stores, debug=False)
+    main(stores, debug=debug)
+
