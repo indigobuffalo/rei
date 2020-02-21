@@ -1,7 +1,19 @@
 """Get the latest nhl stats
 
 Usage:
-  get_nhl.py START END [YEAR]
+  get_nhl.py --days
+  get_nhl.py --start=<start_date> --end=<end_date> [--year=<year>]
+
+Examples:
+  get_nhl.py --start 02-02 --end 02-04
+  get_nhl.py --start 04-11 --end 05-12 --year 2019
+  get_nhl.py 7 
+    
+Options:
+  --days                  Days ago from which to start collecting stats
+  --start=<start_date>    Start date, in format %m-%d
+  --end=<end_date>        End date, in format %m-%d
+  --year=<year>           Year of start and end dates, in format %Y
 
 """
 
@@ -19,10 +31,10 @@ def get_games_played(resp: Dict):
 
 if __name__ == "__main__":
     args = docopt(__doc__)
-    start_mm_dd = args['START']
-    end_mm_dd = args['END']
-    year = args['YEAR'] if args['YEAR'] is not None else '2020'
-    
+    start_mm_dd = args['--start']
+    end_mm_dd = args['--end']
+    year = args['--year'] if args['--year'] else '2020'
+
     # ensure date args formated properly
     datetime.strptime(start_mm_dd, '%m-%d')
     datetime.strptime(end_mm_dd, '%m-%d')

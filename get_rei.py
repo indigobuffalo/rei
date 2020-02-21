@@ -8,9 +8,9 @@ from typing import Dict, List, Tuple, Union
 
 STORE_MAP = {
     "berkeley": "269055",
-    "concord":  "265815",
-    "saratoga": "265834",
-    "sf":       "266084",
+    "concord":  "265816",
+    "saratoga": "265826",
+    "sf":       "266085",
 }
 
 BASE_URL = "https://www.rei.com/events/86150/members-only-garage-sale/"
