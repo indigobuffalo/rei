@@ -2,17 +2,17 @@
 
 Usage:
   nhl.py <days>
-  nhl.py --start=<start_date> --end=<end_date> [--year=<year>]
+  nhl.py --start=<start_date> --end=<end_date>
 
 Examples:
   get_nhl.py --start 02-02 --end 02-04
-  get_nhl.py --start 04-11 --end 05-12 --year 2019
+  get_nhl.py --start 2019-04-11 --end 2019-05-12
   get_nhl.py 7 
     
 Options:
   --days                  Days to collect stats for, counting back from today
-  --start=<start_date>    Start date, in format %m-%d
-  --end=<end_date>        End date, in format %m-%d
+  --start=<start_date>    Start date, in format %Y-%m-%d
+  --end=<end_date>        End date, in format %Y-%m-%d
   --year=<year>           Year of start and end dates, in format %Y
 
 """
@@ -48,18 +48,15 @@ def get_start_and_end_dates(args: Dict) -> Tuple[str, str]:
         start = (today - timedelta(days=int(days)-1)).strftime('%Y-%m-%d')
         end = today.strftime('%Y-%m-%d')
         return start, end
-    year = args.get('--year') or date.today().year
-    start = datetime.strptime(f'{year}-{args["--start"]}', '%Y-%m-%d')
-    end = datetime.strptime(f'{year}-{args["--end"]}', '%Y-%m-%d')
-    return start, end
+    return args['--start'], args['--end']
 
 
-def parse_game_feeds(game: Dict, teams: Dict) -> Dict:
-    """"Parse game feed urls per team from a response date.
-    The game feeds contain stats for the game.  
-
-    For example, you can search a game feed response for the 
-    string "scorer" to determine who scored in the game.
+def parse_game_feed(game: Dict, teams: Dict) -> Dict:
+    """"Parse game feed url from a game dictionary.
+    
+    The game feeds contain stats for the game. For example.
+    you can search a game feed response for the string
+    "scorer" to determine who scored in the game.
     """
     home = game['teams']['home']['team']['name']
     away = game['teams']['away']['team']['name']
@@ -80,10 +77,10 @@ if __name__ == "__main__":
     stats_url = f"{STATS_URL}/api/v1/schedule?startDate={start}&endDate={end}"
     resp = requests.get(stats_url).json()
 
-    teams = rec_dd()
+    games_per_team = rec_dd()
     for date in resp['dates']:
         for game in date['games']:
-            teams = parse_game_feeds(game, teams)
-    teams = dd_to_regular(teams)
-    pprint(teams)
+            games_per_team = parse_game_feed(game, games_per_team)
+    games_per_team = dd_to_regular(games_per_team)
+    pprint(games_per_team)
             
