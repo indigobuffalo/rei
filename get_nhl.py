@@ -1,7 +1,7 @@
 """Get the latest nhl stats
 
 Usage:
-  get_nhl.py --days
+  get_nhl.py <days>
   get_nhl.py --start=<start_date> --end=<end_date> [--year=<year>]
 
 Examples:
@@ -10,46 +10,73 @@ Examples:
   get_nhl.py 7 
     
 Options:
-  --days                  Days ago from which to start collecting stats
+  --days                  Days to collect stats for, counting back from today
   --start=<start_date>    Start date, in format %m-%d
   --end=<end_date>        End date, in format %m-%d
   --year=<year>           Year of start and end dates, in format %Y
 
 """
 
-import requests
+from collections import defaultdict
+from datetime import date, datetime, timedelta, timezone
 from pprint import pprint
-from datetime import datetime
-from typing import Dict
+from typing import Dict, Tuple
+import requests
 
+import pytz
+from pytz import timezone
 from docopt import docopt
 
+STATS_URL = 'https://statsapi.web.nhl.com/api/v1/schedule'
 
-def get_games_played(resp: Dict):
-    return resp['dates'][0]['games'] 
 
+def rec_dd():
+    """Returns a recursive defaultdict of defaultdicts"""
+    return defaultdict(rec_dd)
+
+def dd_to_regular(d):
+    "Converts a defaultdict of defaultdicts to a dict of dicts"
+    if isinstance(d, defaultdict):
+        d = {k: dd_to_regular(v) for k, v in d.items()}
+    return d
+
+def get_start_and_end_dates(args: Dict) -> Tuple[str, str]:
+    days = args.get('<days>')
+    if days:
+        today = date.today()
+        start = (today - timedelta(days=int(days)-1)).strftime('%Y-%m-%d')
+        end = today.strftime('%Y-%m-%d')
+        return start, end
+    year = args.get('--year') or date.today().year
+    start = datetime.strptime(f'{year}-{args["--start"]}', '%Y-%m-%d')
+    end = datetime.strptime(f'{year}-{args["--end"]}', '%Y-%m-%d')
+    return start, end
+
+
+def parse_game(game: Dict, teams: Dict) -> Dict:
+    datetime_utc_naive = datetime.strptime(game['gameDate'], '%Y-%m-%dT%H:%M:%SZ') 
+    datetime_utc = pytz.utc.localize(datetime_utc_naive)
+    datetime_pacific = datetime_utc.astimezone(timezone('US/Pacific'))
+    date = datetime.strftime(datetime_pacific, '%Y-%m-%d')
+
+
+    home = game['teams']['home']['team']['name']
+    away = game['teams']['away']['team']['name']
+
+    teams[home]['games'][date] = game['link']
+    teams[away]['games'][date] = game['link']
+    
+    return teams
 
 if __name__ == "__main__":
     args = docopt(__doc__)
-    start_mm_dd = args['--start']
-    end_mm_dd = args['--end']
-    year = args['--year'] if args['--year'] else '2020'
-
-    # ensure date args formated properly
-    datetime.strptime(start_mm_dd, '%m-%d')
-    datetime.strptime(end_mm_dd, '%m-%d')
-    datetime.strptime(year, '%Y')
-
-    stats_url = f"https://statsapi.web.nhl.com/api/v1/schedule?startDate={year}-{start_mm_dd}&endDate={year}-{end_mm_dd}"
+    start, end = get_start_and_end_dates(args)
+    stats_url = f"{STATS_URL}?startDate={start}&endDate={end}"
     resp = requests.get(stats_url).json()
 
-    import ipdb
-    ipdb.set_trace()
-
-
-    games_first_date_in_range = resp['dates'][0]['games']
-    games_second_date_in_range = resp['dates'][1]['games']
-    games_second_third_in_range = resp['dates'][2]['games']
-
-
-
+    teams = rec_dd()
+    for date in resp['dates']:
+        for game in date['games']:
+            teams = parse_game(game, teams)
+    pprint(dd_to_regular(teams))
+            

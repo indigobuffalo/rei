@@ -13,6 +13,7 @@ asyncio = "*"
 requests = "*"
 beautifulsoup4 = "*"
 docopt = "*"
+pytz = "*"
 
 [requires]
 python_version = "3.7"
