@@ -30,16 +30,6 @@ from docopt import docopt
 STATS_URL = 'https://statsapi.web.nhl.com'
 
 
-def rec_dd():
-    """Return a recursive defaultdict of defaultdicts"""
-    return defaultdict(rec_dd)
-
-def dd_to_regular(d):
-    "Convert a defaultdict of defaultdicts to a dict of dicts"
-    if isinstance(d, defaultdict):
-        d = {k: dd_to_regular(v) for k, v in d.items()}
-    return d
-
 def get_start_and_end_dates(args: Dict) -> Tuple[str, str]:
     """Parse start and end dates from a docopts.Dict"""
     days = args.get('<days>')
@@ -51,25 +41,41 @@ def get_start_and_end_dates(args: Dict) -> Tuple[str, str]:
     return args['--start'], args['--end']
 
 
-def parse_game_feed(game: Dict, teams: Dict) -> Dict:
+def parse_date_and_feed(game: Dict) -> Tuple[str, str]:
     """"Parse game feed url from a game dictionary.
     
-    The game feeds contain stats for the game. For example.
-    you can search a game feed response for the string
-    "scorer" to determine who scored in the game.
+    The game feed contains stats for the game.
     """
-    home = game['teams']['home']['team']['name']
-    away = game['teams']['away']['team']['name']
-
     datetime_utc_naive = datetime.strptime(game['gameDate'], '%Y-%m-%dT%H:%M:%SZ') 
     datetime_utc = pytz.utc.localize(datetime_utc_naive)
     datetime_pacific = datetime_utc.astimezone(timezone('US/Pacific'))
     date = datetime.strftime(datetime_pacific, '%Y-%m-%d')
+    return (date, STATS_URL + game['link'])
 
-    teams[home]['games'][f"{date} vs {away}"] = STATS_URL + game['link']
-    teams[away]['games'][f"{date} vs {home}"] = STATS_URL + game['link']
-    
-    return teams
+
+def parse_stats(feed: Dict) -> Dict:
+    stats = {
+        'goals': {},
+        'assists': {},
+        'shots': {},
+        'blocks': {},
+        'hits': {},
+        'plus_minus': {},
+    }
+    resp = requests.get(feed).json()
+    box = resp['liveData']['boxscore']['teams']
+    home_players = box['home']['players']
+    away_players = box['away']['players']
+
+    for player, stats in home_players.items():
+        print(player)  
+        print(stats)
+        break
+    for player, stats in away_players.items():
+        print(player)  
+        print(stats)
+        break
+
 
 if __name__ == "__main__":
     args = docopt(__doc__)
@@ -77,10 +83,13 @@ if __name__ == "__main__":
     stats_url = f"{STATS_URL}/api/v1/schedule?startDate={start}&endDate={end}"
     resp = requests.get(stats_url).json()
 
-    games_per_team = rec_dd()
+    game_feeds = defaultdict(set)
     for date in resp['dates']:
         for game in date['games']:
-            games_per_team = parse_game_feed(game, games_per_team)
-    games_per_team = dd_to_regular(games_per_team)
-    pprint(games_per_team)
-            
+            date, feed = parse_date_and_feed(game)
+            game_feeds[date].add(feed)
+    game_feeds = dict(game_feeds)
+
+    for date, feeds in game_feeds.items():
+        parse_stats(feeds.pop())
+
