@@ -10,10 +10,11 @@ Examples:
   get_nhl.py 7 
     
 Options:
-  --days                  Days to collect stats for, counting back from today
-  --start=<start_date>    Start date, in format %Y-%m-%d
-  --end=<end_date>        End date, in format %Y-%m-%d
-  --year=<year>           Year of start and end dates, in format %Y
+  --days                  Days to collect stats for, counting back 
+                          from, and including, today.
+  --start=<start_date>    Start date, in format %Y-%m-%d.
+  --end=<end_date>        End date, in format %Y-%m-%d.
+  --year=<year>           Year of start and end dates, in format %Y.
 
 """
 
@@ -32,10 +33,12 @@ STATS_URL = 'https://statsapi.web.nhl.com'
 
 def get_start_and_end_dates(args: Dict) -> Tuple[str, str]:
     """Parse start and end dates from a docopts.Dict"""
-    days = args.get('<days>')
-    if days:
+    days = int(args['<days>']) if args['<days>'] else None
+    if days is not None:
+        if days == 0:
+            raise ValueError("Days must be a positive integer")
         today = date.today()
-        start = (today - timedelta(days=int(days)-1)).strftime('%Y-%m-%d')
+        start = (today - timedelta(days=days-1)).strftime('%Y-%m-%d')
         end = today.strftime('%Y-%m-%d')
         return start, end
     return args['--start'], args['--end']
@@ -80,6 +83,7 @@ def parse_stats(feed: Dict) -> Dict:
 if __name__ == "__main__":
     args = docopt(__doc__)
     start, end = get_start_and_end_dates(args)
+    print(f"Retriving stats for games played between '{start}' and '{end}'.")
     stats_url = f"{STATS_URL}/api/v1/schedule?startDate={start}&endDate={end}"
     resp = requests.get(stats_url).json()
 
