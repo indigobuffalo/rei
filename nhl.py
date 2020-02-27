@@ -1,8 +1,8 @@
 """Get the latest nhl stats
 
 Usage:
-  nhl.py <days>
-  nhl.py --start=<start_date> --end=<end_date>
+  nhl.py <days> [options]
+  nhl.py --start=<start_date> --end=<end_date> [options]
 
 Examples:
   get_nhl.py --start 02-02 --end 02-04
@@ -15,6 +15,8 @@ Options:
   --start=<start_date>    Start date, in format %Y-%m-%d.
   --end=<end_date>        End date, in format %Y-%m-%d.
   --year=<year>           Year of start and end dates, in format %Y.
+  --log-level=<level>     The log level to set the logger to [default: INFO]
+  --output=<file>         Name of the output log file [default: output.log]
 
 """
 
@@ -23,11 +25,15 @@ from datetime import date, datetime, timedelta, timezone
 from pprint import pprint
 from typing import Dict, Tuple
 import requests
+import os
 
 import pytz
 from pytz import timezone
 from docopt import docopt
 
+from log_helper import setup_file_logger, setup_stream_logger
+
+DIR_PATH = os.path.dirname(os.path.realpath(__file__))
 STATS_URL = 'https://statsapi.web.nhl.com'
 
 
@@ -71,19 +77,27 @@ def parse_stats(feed: Dict) -> Dict:
     away_players = box['away']['players']
 
     for player, stats in home_players.items():
-        print(player)  
-        print(stats)
+        file_logger.debug((player))
+        file_logger.info((stats))
         break
     for player, stats in away_players.items():
-        print(player)  
-        print(stats)
+        file_logger.debug((player))
+        file_logger.info((stats))
         break
 
 
 if __name__ == "__main__":
     args = docopt(__doc__)
+
+    log_level = args['--log-level']
+    output_file = args['--output']
+   
+
+    stream_logger = setup_stream_logger(log_level)
+    file_logger = setup_file_logger(log_level, output_file)
+
     start, end = get_start_and_end_dates(args)
-    print(f"Retriving stats for games played between '{start}' and '{end}'.")
+    stream_logger.info((f"Retriving stats for games played between '{start}' and '{end}'."))
     stats_url = f"{STATS_URL}/api/v1/schedule?startDate={start}&endDate={end}"
     resp = requests.get(stats_url).json()
 
