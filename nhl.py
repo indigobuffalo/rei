@@ -37,6 +37,13 @@ DIR_PATH = os.path.dirname(os.path.realpath(__file__))
 STATS_URL = 'https://statsapi.web.nhl.com'
 
 
+def dd_to_regular(d):
+    "Converts a defaultdict of defaultdicts to a dict of dicts"
+    if isinstance(d, defaultdict):
+        d = {k: dd_to_regular(v) for k, v in d.items()}
+    return d
+
+
 def get_start_and_end_dates(args: Dict) -> Tuple[str, str]:
     """Parse start and end dates from a docopts.Dict"""
     days = int(args['<days>']) if args['<days>'] else None
@@ -62,28 +69,54 @@ def parse_date_and_feed(game: Dict) -> Tuple[str, str]:
     return (date, STATS_URL + game['link'])
 
 
-def parse_stats(feed: Dict) -> Dict:
-    stats = {
-        'goals': {},
-        'assists': {},
-        'shots': {},
-        'blocks': {},
-        'hits': {},
-        'plus_minus': {},
-    }
+def parse_skater_stats(stats):
+    goals = stats['goals']
+    assists = stats['assists']
+    shots = stats['shots']
+    blocks = stats['blocked']
+    hits = stats['hits']
+    plus_minus = stats['plusMinus']
+    return [
+        ('goals', goals),
+        ('assists', assists),
+        ('shots', shots),
+        ('blocks', blocks),
+        ('hits', hits),
+        ('+/-', plus_minus)
+    ]    
+    
+
+def parse_stats(feed: Dict, players: Dict) -> Dict:
     resp = requests.get(feed).json()
     box = resp['liveData']['boxscore']['teams']
     home_players = box['home']['players']
     away_players = box['away']['players']
 
-    for player, stats in home_players.items():
-        file_logger.debug((player))
-        file_logger.info((stats))
-        break
+    for player, info in home_players.items():
+        if not info['stats'].get('skaterStats'):
+            print("Goalie stats")
+            break
+        name = info['person']['fullName']
+        stats = info['stats']['skaterStats']
+        
+        print("YOOO")
+        print(parse_skater_stats(stats))
+        for stat in parse_skater_stats(stats):
+            players[name][stat[0]] += stat[1]
+
     for player, stats in away_players.items():
-        file_logger.debug((player))
-        file_logger.info((stats))
-        break
+        if not info['stats'].get('skaterStats'):
+            print("Goalie stats")
+            break
+        name = info['person']['fullName']
+        stats = info['stats']['skaterStats']
+        
+        print("YOOO")
+        print(parse_skater_stats(stats))
+        for stat in parse_skater_stats(stats):
+            players[name][stat[0]] += stat[1]
+
+    return players
 
 
 if __name__ == "__main__":
@@ -107,7 +140,11 @@ if __name__ == "__main__":
             date, feed = parse_date_and_feed(game)
             game_feeds[date].add(feed)
     game_feeds = dict(game_feeds)
+    print(game_feeds)
 
+    players = defaultdict(lambda: defaultdict(int))
     for date, feeds in game_feeds.items():
-        parse_stats(feeds.pop())
+        players = parse_stats(feeds.pop(), players)
+
+    pprint(dd_to_regular(players))
 
