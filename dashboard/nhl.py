@@ -10,8 +10,6 @@ Examples:
   get_nhl.py 7 
     
 Options:
-  --days                  Days to collect stats for, counting back 
-                          from, and including, today.
   --start=<start_date>    Start date, in format %Y-%m-%d.
   --end=<end_date>        End date, in format %Y-%m-%d.
   --year=<year>           Year of start and end dates, in format %Y.
@@ -31,7 +29,7 @@ import pytz
 from pytz import timezone
 from docopt import docopt
 
-from log_helper import setup_file_logger, setup_stream_logger
+from dashboard.log_helper import setup_file_logger, setup_stream_logger
 
 DIR_PATH = os.path.dirname(os.path.realpath(__file__))
 STATS_URL = 'https://statsapi.web.nhl.com'
@@ -99,7 +97,6 @@ def parse_stats(feed: Dict, players: Dict) -> Dict:
         name = info['person']['fullName']
         stats = info['stats']['skaterStats']
         
-        print("YOOO")
         print(parse_skater_stats(stats))
         for stat in parse_skater_stats(stats):
             players[name][stat[0]] += stat[1]
@@ -111,7 +108,6 @@ def parse_stats(feed: Dict, players: Dict) -> Dict:
         name = info['person']['fullName']
         stats = info['stats']['skaterStats']
         
-        print("YOOO")
         print(parse_skater_stats(stats))
         for stat in parse_skater_stats(stats):
             players[name][stat[0]] += stat[1]
@@ -119,15 +115,10 @@ def parse_stats(feed: Dict, players: Dict) -> Dict:
     return players
 
 
-if __name__ == "__main__":
-    args = docopt(__doc__)
-
-    log_level = args['--log-level']
-    output_file = args['--output']
-   
-
+def main(args):
+    log_level, log_file  = args['--log-level'], args['--output']
     stream_logger = setup_stream_logger(log_level)
-    file_logger = setup_file_logger(log_level, output_file)
+    file_logger = setup_file_logger(log_level, log_file)
 
     start, end = get_start_and_end_dates(args)
     stream_logger.info((f"Retriving stats for games played between '{start}' and '{end}'."))
@@ -148,3 +139,8 @@ if __name__ == "__main__":
 
     pprint(dd_to_regular(players))
 
+
+if __name__ == "__main__":
+    args = docopt(__doc__)
+    main(args)
+   

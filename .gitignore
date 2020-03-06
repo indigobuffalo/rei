@@ -1,2 +1,7 @@
-.idea/
+.idea/*
+
+*.cache*
+
+logs/*
 *.log
+
