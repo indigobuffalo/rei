@@ -132,6 +132,7 @@ def main(args):
 
     game_feeds = defaultdict(set)
     for date in resp['dates']:
+        print(f'See {date["totalGames"]} games on {date["date"]}')
         for game in date['games']:
             date, feed = parse_date_and_feed(game)
             game_feeds[date].add(feed)
