@@ -5,3 +5,5 @@
 logs/*
 *.log
 
+*egg-info*
+**__pycache__**
