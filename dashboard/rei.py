@@ -1,10 +1,12 @@
+#! /Users/Akerson/.virtualenvs/dashboard-0jca69GK/bin/python
+
 import sys
 from datetime import datetime
 
 import requests
 from bs4 import BeautifulSoup
 from pprint import pprint
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Tuple
 
 STORE_MAP = {
     "berkeley": "269055",
@@ -18,6 +20,7 @@ BASE_URL = "https://www.rei.com/events/86150/members-only-garage-sale/"
 GS_BLOB_START = '"name" : "members only garage sale!",'
 GS_BLOB_END = u'"addresscountry" : "us"'
 
+
 def contains_key_detail(line):
     key_details = [
         'name',
@@ -29,6 +32,7 @@ def contains_key_detail(line):
         'addresslocality',
     ]
     return any(x in line for x in key_details)
+
 
 def prettify_dict(garage_sale: Dict) -> Dict:
     street, city = garage_sale.pop('Streetaddress'), garage_sale.pop('Addresslocality')
@@ -52,6 +56,7 @@ def prettify_dict(garage_sale: Dict) -> Dict:
 
     return garage_sale
 
+
 def scrub_key_val(key_and_val: List[str]) -> Tuple[str, str]:
     k, v = key_and_val
     k_scrubbed = k.replace('"', '').strip().title()
@@ -59,11 +64,13 @@ def scrub_key_val(key_and_val: List[str]) -> Tuple[str, str]:
 
     return k_scrubbed, v_scrubbed
 
+
 def get_response_as_lines_of_text(store: str) -> List[str]:
     resp = requests.get(BASE_URL + STORE_MAP[store.lower()])
     resp.raise_for_status()
     text = BeautifulSoup(resp.content, 'html.parser').get_text()
     return [line.strip().lower() for line in text.split('\n')]
+
 
 def get_garage_sale_dates(store) -> Dict:
     text_lines = get_response_as_lines_of_text(store)
@@ -80,6 +87,7 @@ def get_garage_sale_dates(store) -> Dict:
             found_garage_sale = True
     return prettify_dict(garage_sale)
 
+
 def get_garage_sale_dates_debug(store) -> List[str]:
     text_lines = get_response_as_lines_of_text(store)
     garage_sale = []
@@ -93,6 +101,7 @@ def get_garage_sale_dates_debug(store) -> List[str]:
             found_garage_sale = True
     return garage_sale
 
+
 def main(stores: List, debug:bool = False) -> None:
     for store in stores:
         print("\n")
@@ -104,7 +113,7 @@ def main(stores: List, debug:bool = False) -> None:
 
 
 if __name__ == "__main__":
-    debug =  "debug" in sys.argv
+    debug = "debug" in sys.argv
     if debug:
         sys.argv.remove("debug")
     stores = sys.argv[1:] if len(sys.argv) > 1 else list(STORE_MAP.keys())

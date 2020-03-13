@@ -131,45 +131,43 @@ def parse_stats(feed: Dict, session: requests.session) -> Tuple[Dict, Dict]:
 
 
 def main(args):
+    #TODO: add validation for date args
     start, end = get_start_and_end_dates(args)
-    stats_url = f"{STATS_URL}/api/v1/schedule?startDate={start}&endDate={end}"
 
-    # TODO: find a nice way to make session global
     session = requests.session()
-
-    resp = session.get(stats_url).json()
+    stats_url = f"{STATS_URL}/api/v1/schedule?startDate={start}&endDate={end}"
+    stats_resp = session.get(stats_url).json()
 
     game_feeds = defaultdict(set)
-    for date in resp['dates']:
+    for date in stats_resp['dates']:
         print(f'Collecting stats for {date["totalGames"]} games on {date["date"]}')
         for game in date['games']:
             date, feed = parse_date_and_feed(game)
             game_feeds[date].add(feed)
     game_feeds = dict(game_feeds)
 
-    skaters_total = {}
-    goalies_total = {}
-    for _, feeds in game_feeds.items():
-        for feed in feeds:
-            skaters, goalies = parse_stats(feed, session)
+    skater_stats_cumulative = {}
+    goalie_stats_cumulative = {}
+    for date, feeds in game_feeds.items():
+        for game_feed in feeds:
+            skaters, goalies = parse_stats(game_feed, session)
             for skater, stats in skaters.items():
-                if skater in skaters_total:
+                if skater in skater_stats_cumulative:
                     for stat in stats:
-                        skaters_total[skater][stat] += stats[stat]
+                        skater_stats_cumulative[skater][stat] += stats[stat]
                 else:
-                    skaters_total[skater] = stats
+                    skater_stats_cumulative[skater] = stats
             for goalie, stats in goalies.items():
-                if goalie in goalies_total:
+                if goalie in goalie_stats_cumulative:
                     for stat in stats:
-                        goalies_total[goalie][stat] += stats[stat]
+                        goalie_stats_cumulative[goalie][stat] += stats[stat]
                 else:
-                    goalies_total[goalie] = stats
+                    goalie_stats_cumulative[goalie] = stats
 
-    out_filename = f'players_{start}_to_{end}.txt'
-    out_file = os.path.join(CURRENT_DIR, out_filename)
-    with open(os.path.join(CURRENT_DIR, out_file), 'w') as f:
-        f.write(pprint.pformat(skaters_total))
-        f.write(pprint.pformat(goalies_total))
+    output_file = os.path.join(CURRENT_DIR, f'stats_{start}_to_{end}.txt')
+    with open(os.path.join(CURRENT_DIR, output_file), 'w') as f:
+        f.write(pprint.pformat(skater_stats_cumulative))
+        f.write(pprint.pformat(goalie_stats_cumulative))
 
 
 if __name__ == '__main__':
