@@ -23,7 +23,7 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
 import pprint
 from typing import Dict, Tuple
-import pathlib
+from pathlib import Path
 
 import requests
 
@@ -32,12 +32,14 @@ from pytz import timezone
 from docopt import docopt
 
 
-CURRENT_DIR = pathlib.Path(__file__).parent.absolute()
+CURRENT_DIR = Path(__file__).parent.absolute()
+PROJECT_DIR = CURRENT_DIR.joinpath('..')
+OUTPUT_DIR = PROJECT_DIR.joinpath('output')
 STATS_URL = 'https://statsapi.web.nhl.com'
 
 
 def dd_to_regular(d):
-    "Converts a defaultdict of defaultdicts to a dict of dicts"
+    """Converts a defaultdict of defaultdicts to a dict of dicts"""
     if isinstance(d, defaultdict):
         d = {k: dd_to_regular(v) for k, v in d.items()}
     return d
@@ -59,118 +61,134 @@ def get_start_and_end_dates(args: Dict) -> Tuple[str, str]:
     return start, end
 
 
-def parse_date_and_feed(game: Dict) -> Tuple[str, str]:
-    """"Parse game feed url from a game dictionary.
-    
-    The game feed contains stats for the game.
-    """
-    datetime_utc_naive = datetime.strptime(game['gameDate'], '%Y-%m-%dT%H:%M:%SZ') 
-    datetime_utc = pytz.utc.localize(datetime_utc_naive)
-    datetime_pacific = datetime_utc.astimezone(timezone('US/Pacific'))
-    game_date = datetime.strftime(datetime_pacific, '%Y-%m-%d')
-    return game_date, STATS_URL + game['link']
+class StatsScraper:
 
+    def __init__(self, base_stats_url, start_date, end_date):
+        self.stats_url = f"{base_stats_url}/api/v1/schedule?startDate={start_date}&endDate={end_date}"
+        self.output_file = os.path.join(OUTPUT_DIR, f'stats_{start_date}_to_{end_date}.txt')
 
-def parse_skater_stats(stats):
-    assists = stats['assists']
-    blocks = stats['blocked']
-    hits = stats['hits']
-    goals = stats['goals']
-    plus_minus = stats['plusMinus']
-    shots = stats['shots']
-    return [
-        ('goals', goals),
-        ('assists', assists),
-        ('shots', shots),
-        ('blocks', blocks),
-        ('hits', hits),
-        ('+/-', plus_minus)
-    ]
+        self.session = requests.Session()
 
+        self.skater_stats = {}
+        self.goalie_stats = {}
+        self.game_feeds = None
 
-def parse_goalie_stats(stats):
-    assists = stats['assists']
-    goals = stats['goals']
-    saves = stats['saves']
-    shots = stats['shots']
-    shutout = 1 if (shots == saves) and (shots > 0) else 0
-    return [
-        ('assists', assists),
-        ('goals', goals),
-        ('saves', saves),
-        ('shots', shots),
-        ('shutout', shutout)
-    ]
+    @staticmethod
+    def parse_date_and_feed(game: Dict) -> Tuple[str, str]:
+        """"Parse game feed url from a game dictionary.
 
+        The game feed contains stats for the game.
+        """
+        datetime_utc_naive = datetime.strptime(game['gameDate'], '%Y-%m-%dT%H:%M:%SZ')
+        datetime_utc = pytz.utc.localize(datetime_utc_naive)
+        datetime_pacific = datetime_utc.astimezone(timezone('US/Pacific'))
+        game_date = datetime.strftime(datetime_pacific, '%Y-%m-%d')
+        return game_date, STATS_URL + game['link']
 
-def parse_player_stats(info, skaters, goalies):
-    name = info['person']['fullName']
-    first, last = name.split(" ", 1)
-    name_last_first = f'{last}, {first}'
-    if 'skaterStats' in info['stats']:
-        skaters[name_last_first]['games'] += 1
-        stats = parse_skater_stats(info['stats']['skaterStats'])
-        for stat in stats:
-            skaters[name_last_first][stat[0]] += stat[1]
-    if 'goalieStats' in info['stats']:
-        goalies[name_last_first]['games'] += 1
-        stats = parse_goalie_stats(info['stats']['goalieStats'])
-        for stat in stats:
-            goalies[name_last_first][stat[0]] += stat[1]
-    return skaters, goalies
+    @staticmethod
+    def parse_skater_stats(stats):
+        assists = stats['assists']
+        blocks = stats['blocked']
+        hits = stats['hits']
+        goals = stats['goals']
+        plus_minus = stats['plusMinus']
+        shots = stats['shots']
+        return [
+            ('goals', goals),
+            ('assists', assists),
+            ('shots', shots),
+            ('blocks', blocks),
+            ('hits', hits),
+            ('+/-', plus_minus)
+        ]
 
+    @staticmethod
+    def parse_goalie_stats(stats):
+        assists = stats['assists']
+        goals = stats['goals']
+        saves = stats['saves']
+        shots = stats['shots']
+        shutout = 1 if (shots == saves) and (shots > 0) else 0
+        return [
+            ('assists', assists),
+            ('goals', goals),
+            ('saves', saves),
+            ('shots', shots),
+            ('shutout', shutout)
+        ]
 
-def parse_stats(feed: Dict, session: requests.session) -> Tuple[Dict, Dict]:
-    skaters = defaultdict(lambda: defaultdict(int))
-    goalies = defaultdict(lambda: defaultdict(int))
-    resp = session.get(feed).json()
-    box = resp['liveData']['boxscore']['teams']
-    home_players = box['home']['players']
-    away_players = box['away']['players']
-    for player, info in home_players.items():
-        skaters, goalies = parse_player_stats(info, skaters, goalies)
-    for player, info in away_players.items():
-        skaters, goalies = parse_player_stats(info, skaters, goalies)
-    return dd_to_regular(skaters), dd_to_regular(goalies)
+    def parse_player_stats(self, info, skaters, goalies):
+        name = info['person']['fullName']
+        first, last = name.split(" ", 1)
+        name_last_first = f'{last}, {first}'
+        if 'skaterStats' in info['stats']:
+            skaters[name_last_first]['games'] += 1
+            stats = self.parse_skater_stats(info['stats']['skaterStats'])
+            for stat in stats:
+                skaters[name_last_first][stat[0]] += stat[1]
+        if 'goalieStats' in info['stats']:
+            goalies[name_last_first]['games'] += 1
+            stats = self.parse_goalie_stats(info['stats']['goalieStats'])
+            for stat in stats:
+                goalies[name_last_first][stat[0]] += stat[1]
+        return skaters, goalies
+
+    def parse_stats(self, feed: Dict) -> Tuple[Dict, Dict]:
+        skaters = defaultdict(lambda: defaultdict(int))
+        goalies = defaultdict(lambda: defaultdict(int))
+        resp = self.session.get(feed).json()
+        box = resp['liveData']['boxscore']['teams']
+        home_players = box['home']['players']
+        away_players = box['away']['players']
+        for player, info in home_players.items():
+            skaters, goalies = self.parse_player_stats(info, skaters, goalies)
+        for player, info in away_players.items():
+            skaters, goalies = self.parse_player_stats(info, skaters, goalies)
+        return dd_to_regular(skaters), dd_to_regular(goalies)
+
+    def get_game_feeds(self):
+        stats_resp = self.session.get(self.stats_url).json()
+        game_feeds = defaultdict(set)
+        for date in stats_resp['dates']:
+            print(f'Collecting stats for {date["totalGames"]} games on {date["date"]}')
+            for game in date['games']:
+                date, feed = self.parse_date_and_feed(game)
+                game_feeds[date].add(feed)
+        self.game_feeds = dict(game_feeds)
+
+    def get_stats(self):
+        for date, feeds in self.game_feeds.items():
+            for game_feed in feeds:
+                skaters, goalies = self.parse_stats(game_feed)
+                for skater, stats in skaters.items():
+                    if skater in self.skater_stats:
+                        for stat in stats:
+                            self.skater_stats[skater][stat] += stats[stat]
+                    else:
+                        self.skater_stats[skater] = stats
+                for goalie, stats in goalies.items():
+                    if goalie in self.goalie_stats:
+                        for stat in stats:
+                            self.goalie_stats[goalie][stat] += stats[stat]
+                    else:
+                        self.goalie_stats[goalie] = stats
+
+    def write_stats(self):
+        with open(self.output_file, 'w') as f:
+            f.write(pprint.pformat(self.skater_stats))
+            f.write(pprint.pformat(self.goalie_stats))
 
 
 def main(args):
     start, end = get_start_and_end_dates(args)
 
-    session = requests.session()
-    stats_url = f"{STATS_URL}/api/v1/schedule?startDate={start}&endDate={end}"
-    stats_resp = session.get(stats_url).json()
+    if not OUTPUT_DIR.is_dir():
+        Path.mkdir(OUTPUT_DIR)
 
-    game_feeds = defaultdict(set)
-    for date in stats_resp['dates']:
-        print(f'Collecting stats for {date["totalGames"]} games on {date["date"]}')
-        for game in date['games']:
-            date, feed = parse_date_and_feed(game)
-            game_feeds[date].add(feed)
-    game_feeds = dict(game_feeds)
-
-    skater_stats_cumulative = {}
-    goalie_stats_cumulative = {}
-    for date, feeds in game_feeds.items():
-        for game_feed in feeds:
-            skaters, goalies = parse_stats(game_feed, session)
-            for skater, stats in skaters.items():
-                if skater in skater_stats_cumulative:
-                    for stat in stats:
-                        skater_stats_cumulative[skater][stat] += stats[stat]
-                else:
-                    skater_stats_cumulative[skater] = stats
-            for goalie, stats in goalies.items():
-                if goalie in goalie_stats_cumulative:
-                    for stat in stats:
-                        goalie_stats_cumulative[goalie][stat] += stats[stat]
-                else:
-                    goalie_stats_cumulative[goalie] = stats
-
-    output_file = os.path.join(CURRENT_DIR, f'stats_{start}_to_{end}.txt')
-    with open(os.path.join(CURRENT_DIR, output_file), 'w') as f:
-        f.write(pprint.pformat(skater_stats_cumulative))
-        f.write(pprint.pformat(goalie_stats_cumulative))
+    scraper = StatsScraper(STATS_URL, start, end)
+    scraper.get_game_feeds()
+    scraper.get_stats()
+    scraper.write_stats()
 
 
 if __name__ == '__main__':
