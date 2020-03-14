@@ -18,6 +18,7 @@ Options:
 
 """
 import os
+import re
 from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
 import pprint
@@ -52,7 +53,10 @@ def get_start_and_end_dates(args: Dict) -> Tuple[str, str]:
         start = (today - timedelta(days=days-1)).strftime('%Y-%m-%d')
         end = today.strftime('%Y-%m-%d')
         return start, end
-    return args['--start'], args['--end']
+    start, end = args['--start'], args['--end']
+    if not all(re.match('[0-9]{4}-[0-9]{2}-[0-9]{2}', d) for d in [start, end]):
+        raise ValueError('Start and end dates must be of format YYYY-MM-DD')
+    return start, end
 
 
 def parse_date_and_feed(game: Dict) -> Tuple[str, str]:
@@ -131,7 +135,6 @@ def parse_stats(feed: Dict, session: requests.session) -> Tuple[Dict, Dict]:
 
 
 def main(args):
-    #TODO: add validation for date args
     start, end = get_start_and_end_dates(args)
 
     session = requests.session()
