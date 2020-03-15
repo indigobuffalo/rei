@@ -31,11 +31,14 @@ import pytz
 from pytz import timezone
 from docopt import docopt
 
+from dashboard.log_helper import setup_stream_logger
 
 CURRENT_DIR = Path(__file__).parent.absolute()
 PROJECT_DIR = CURRENT_DIR.joinpath('..')
 OUTPUT_DIR = PROJECT_DIR.joinpath('output')
 STATS_URL = 'https://statsapi.web.nhl.com'
+
+LOGGER = setup_stream_logger()
 
 
 def dd_to_regular(d):
@@ -77,7 +80,7 @@ class StatsScraper:
     def parse_date_and_feed(game: Dict) -> Tuple[str, str]:
         """"Parse game feed url from a game dictionary.
 
-        The game feed contains stats for the game.
+        The game feed resource contains stats for the game.
         """
         datetime_utc_naive = datetime.strptime(game['gameDate'], '%Y-%m-%dT%H:%M:%SZ')
         datetime_utc = pytz.utc.localize(datetime_utc_naive)
@@ -133,7 +136,7 @@ class StatsScraper:
                 goalies[name_last_first][stat[0]] += stat[1]
         return skaters, goalies
 
-    def parse_stats(self, feed: Dict) -> Tuple[Dict, Dict]:
+    def parse_stats(self, feed: str) -> Tuple[Dict, Dict]:
         skaters = defaultdict(lambda: defaultdict(int))
         goalies = defaultdict(lambda: defaultdict(int))
         resp = self.session.get(feed).json()
@@ -148,30 +151,29 @@ class StatsScraper:
 
     def get_game_feeds(self):
         stats_resp = self.session.get(self.stats_url).json()
-        game_feeds = defaultdict(set)
+        feeds_by_date = defaultdict(set)
         for date in stats_resp['dates']:
-            print(f'Collecting stats for {date["totalGames"]} games on {date["date"]}')
+            LOGGER.info(f'Collecting stats for {date["totalGames"]} games on {date["date"]}')
             for game in date['games']:
                 date, feed = self.parse_date_and_feed(game)
-                game_feeds[date].add(feed)
-        self.game_feeds = dict(game_feeds)
+                feeds_by_date[date].add(feed)
+        self.game_feeds = [f for feeds in feeds_by_date.values() for f in feeds]
 
     def get_stats(self):
-        for date, feeds in self.game_feeds.items():
-            for game_feed in feeds:
-                skaters, goalies = self.parse_stats(game_feed)
-                for skater, stats in skaters.items():
-                    if skater in self.skater_stats:
-                        for stat in stats:
-                            self.skater_stats[skater][stat] += stats[stat]
-                    else:
-                        self.skater_stats[skater] = stats
-                for goalie, stats in goalies.items():
-                    if goalie in self.goalie_stats:
-                        for stat in stats:
-                            self.goalie_stats[goalie][stat] += stats[stat]
-                    else:
-                        self.goalie_stats[goalie] = stats
+        for feed in self.game_feeds:
+            skaters, goalies = self.parse_stats(feed)
+            for skater, stats in skaters.items():
+                if skater in self.skater_stats:
+                    for stat in stats:
+                        self.skater_stats[skater][stat] += stats[stat]
+                else:
+                    self.skater_stats[skater] = stats
+            for goalie, stats in goalies.items():
+                if goalie in self.goalie_stats:
+                    for stat in stats:
+                        self.goalie_stats[goalie][stat] += stats[stat]
+                else:
+                    self.goalie_stats[goalie] = stats
 
     def write_stats(self):
         with open(self.output_file, 'w') as f:

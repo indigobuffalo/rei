@@ -27,6 +27,7 @@ def setup_file_logger(level: str = 'INFO', out_file: str = 'output.log'):
     
     return logging.getLogger('file_handler')
 
+
 def setup_stream_logger(level: str = 'INFO'):
     level = getattr(logging, level.upper()) 
     stream_handler = logging.StreamHandler()

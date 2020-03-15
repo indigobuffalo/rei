@@ -16,6 +16,7 @@ beautifulsoup4 = "*"
 docopt = "*"
 pytz = "*"
 dashboard = {editable = true,path = "."}
+aiohttp = "*"
 
 [requires]
 python_version = "3.7"
