@@ -25,6 +25,8 @@ import pprint
 from typing import Dict, Tuple
 from pathlib import Path
 
+import aiohttp
+import asyncio
 import requests
 
 import pytz
@@ -75,6 +77,7 @@ class StatsScraper:
         self.skater_stats = {}
         self.goalie_stats = {}
         self.game_feeds = None
+        self.game_stats = None
 
     @staticmethod
     def parse_date_and_feed(game: Dict) -> Tuple[str, str]:
@@ -136,11 +139,12 @@ class StatsScraper:
                 goalies[name_last_first][stat[0]] += stat[1]
         return skaters, goalies
 
-    def parse_stats(self, feed: str) -> Tuple[Dict, Dict]:
+    async def parse_game_stats(self, feed: str, session: aiohttp.ClientSession) -> Tuple[Dict, Dict]:
         skaters = defaultdict(lambda: defaultdict(int))
         goalies = defaultdict(lambda: defaultdict(int))
-        resp = self.session.get(feed).json()
-        box = resp['liveData']['boxscore']['teams']
+        resp = await session.get(feed)
+        resp_json = await resp.json()
+        box = resp_json['liveData']['boxscore']['teams']
         home_players = box['home']['players']
         away_players = box['away']['players']
         for player, info in home_players.items():
@@ -159,9 +163,16 @@ class StatsScraper:
                 feeds_by_date[date].add(feed)
         self.game_feeds = [f for feeds in feeds_by_date.values() for f in feeds]
 
-    def get_stats(self):
-        for feed in self.game_feeds:
-            skaters, goalies = self.parse_stats(feed)
+    async def get_game_stats(self):
+        async with aiohttp.ClientSession() as session:
+            tasks = []
+            for feed in self.game_feeds:
+                tasks.append(self.parse_game_stats(feed=feed, session=session))
+            game_stats = await asyncio.gather(*tasks, return_exceptions=True)
+            return game_stats
+
+    def aggregate_game_stats(self, game_stats):
+        for skaters, goalies in game_stats:
             for skater, stats in skaters.items():
                 if skater in self.skater_stats:
                     for stat in stats:
@@ -189,7 +200,8 @@ def main(args):
 
     scraper = StatsScraper(STATS_URL, start, end)
     scraper.get_game_feeds()
-    scraper.get_stats()
+    game_stats = asyncio.run(scraper.get_game_stats())
+    scraper.aggregate_game_stats(game_stats)
     scraper.write_stats()
 
 
