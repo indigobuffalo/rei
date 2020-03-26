@@ -19,11 +19,12 @@ Options:
 """
 import os
 import re
+import pprint
+import pathlib
+import time
 from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
-import pprint
 from typing import Dict, Tuple, List
-import pathlib
 
 import asyncio
 import aiohttp
@@ -149,13 +150,18 @@ async def fetch_game_stats_concurrently(game_feeds: List[str]) -> List[Tuple[Dic
 
 
 def main(args):
+
+    print(f"Started at {time.strftime('%X')}")
     start, end = get_start_and_end_dates(args)
 
-    session = requests.session()
     stats_url = f"{STATS_URL}/api/v1/schedule?startDate={start}&endDate={end}"
-    stats_resp = session.get(stats_url).json()
+
+    start = time.perf_counter()
+
+    stats_resp = requests.get(stats_url).json()
 
     feeds_by_date = defaultdict(set)
+
     for date in stats_resp['dates']:
         LOGGER.info(f'Collecting stats for {date["totalGames"]} games on {date["date"]}')
         for game in date['games']:
@@ -168,6 +174,7 @@ def main(args):
     game_feeds = [f for feeds in feeds_by_date.values() for f in feeds]
     game_stats = asyncio.run(fetch_game_stats_concurrently(game_feeds))
 
+    print(time.perf_counter() - start)
     for skaters, goalies in game_stats:
         for skater, stats in skaters.items():
             if skater in skater_stats_cumulative:
@@ -186,6 +193,7 @@ def main(args):
     with open(os.path.join(CURRENT_DIR, output_file), 'w') as f:
         f.write(pprint.pformat(skater_stats_cumulative))
         f.write(pprint.pformat(goalie_stats_cumulative))
+    print(f"Ended at {time.strftime('%X')}")
 
 
 if __name__ == '__main__':

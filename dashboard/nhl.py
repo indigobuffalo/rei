@@ -19,11 +19,12 @@ Options:
 """
 import os
 import re
+import pprint
+import time
 from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
-import pprint
-from typing import Dict, Tuple
 from pathlib import Path
+from typing import Dict, Tuple
 
 import aiohttp
 import asyncio
@@ -70,9 +71,9 @@ class StatsScraper:
 
     def __init__(self, base_stats_url, start_date, end_date):
         self.stats_url = f"{base_stats_url}/api/v1/schedule?startDate={start_date}&endDate={end_date}"
-        self.output_file = os.path.join(OUTPUT_DIR, f'stats_{start_date}_to_{end_date}.txt')
-
-        self.session = requests.Session()
+        self.output_file = os.path.join(OUTPUT_DIR, f'{start_date}_to_{end_date}.txt')
+        self.start = start_date
+        self.end = end_date
 
         self.skater_stats = {}
         self.goalie_stats = {}
@@ -154,7 +155,7 @@ class StatsScraper:
         return dd_to_regular(skaters), dd_to_regular(goalies)
 
     def get_game_feeds(self):
-        stats_resp = self.session.get(self.stats_url).json()
+        stats_resp = requests.get(self.stats_url).json()
         feeds_by_date = defaultdict(set)
         for date in stats_resp['dates']:
             LOGGER.info(f'Collecting stats for {date["totalGames"]} games on {date["date"]}')
@@ -187,22 +188,28 @@ class StatsScraper:
                     self.goalie_stats[goalie] = stats
 
     def write_stats(self):
+        LOGGER.info('Writing stats to: %s' % os.path.abspath(self.output_file))
         with open(self.output_file, 'w') as f:
             f.write(pprint.pformat(self.skater_stats))
             f.write(pprint.pformat(self.goalie_stats))
 
 
 def main(args):
+    print(f"Started at {time.strftime('%X')}")
     start, end = get_start_and_end_dates(args)
 
     if not OUTPUT_DIR.is_dir():
         Path.mkdir(OUTPUT_DIR)
 
     scraper = StatsScraper(STATS_URL, start, end)
+
     scraper.get_game_feeds()
     game_stats = asyncio.run(scraper.get_game_stats())
+
     scraper.aggregate_game_stats(game_stats)
     scraper.write_stats()
+
+    print(f"Ended at {time.strftime('%X')}")
 
 
 if __name__ == '__main__':
