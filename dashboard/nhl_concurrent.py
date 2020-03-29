@@ -156,8 +156,6 @@ def main(args):
 
     stats_url = f"{STATS_URL}/api/v1/schedule?startDate={start}&endDate={end}"
 
-    start = time.perf_counter()
-
     stats_resp = requests.get(stats_url).json()
 
     feeds_by_date = defaultdict(set)
@@ -174,7 +172,6 @@ def main(args):
     game_feeds = [f for feeds in feeds_by_date.values() for f in feeds]
     game_stats = asyncio.run(fetch_game_stats_concurrently(game_feeds))
 
-    print(time.perf_counter() - start)
     for skaters, goalies in game_stats:
         for skater, stats in skaters.items():
             if skater in skater_stats_cumulative:
