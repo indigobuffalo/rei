@@ -3,8 +3,7 @@
 *.cache*
 
 logs/*
-*.log
-*.txt
+output/*
 
 *egg-info*
 **__pycache__**

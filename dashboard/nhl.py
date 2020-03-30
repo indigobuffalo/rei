@@ -19,7 +19,7 @@ Options:
 """
 import os
 import re
-import pprint
+import json
 import time
 from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
@@ -36,10 +36,6 @@ from docopt import docopt
 
 from dashboard.log_helper import setup_stream_logger
 
-CURRENT_DIR = Path(__file__).parent.absolute()
-PROJECT_DIR = CURRENT_DIR.joinpath('..')
-OUTPUT_DIR = PROJECT_DIR.joinpath('output')
-STATS_URL = 'https://statsapi.web.nhl.com'
 
 LOGGER = setup_stream_logger()
 
@@ -69,19 +65,15 @@ def get_start_and_end_dates(args: Dict) -> Tuple[str, str]:
 
 class StatsScraper:
 
-    def __init__(self, base_stats_url, start_date, end_date):
-        self.stats_url = f"{base_stats_url}/api/v1/schedule?startDate={start_date}&endDate={end_date}"
-        self.output_file = os.path.join(OUTPUT_DIR, f'{start_date}_to_{end_date}.txt')
-        self.start = start_date
-        self.end = end_date
+    def __init__(self, start_date, end_date):
+        self.base_stats_url = 'https://statsapi.web.nhl.com'
 
-        self.skater_stats = {}
-        self.goalie_stats = {}
+        self.start_date = start_date
+        self.end_date = end_date
         self.game_feeds = None
         self.game_stats = None
 
-    @staticmethod
-    def parse_date_and_feed(game: Dict) -> Tuple[str, str]:
+    def parse_date_and_feed(self, game: Dict) -> Tuple[str, str]:
         """"Parse game feed url from a game dictionary.
 
         The game feed resource contains stats for the game.
@@ -90,7 +82,7 @@ class StatsScraper:
         datetime_utc = pytz.utc.localize(datetime_utc_naive)
         datetime_pacific = datetime_utc.astimezone(timezone('US/Pacific'))
         game_date = datetime.strftime(datetime_pacific, '%Y-%m-%d')
-        return game_date, STATS_URL + game['link']
+        return game_date, self.base_stats_url + game['link']
 
     @staticmethod
     def parse_skater_stats(stats):
@@ -127,23 +119,25 @@ class StatsScraper:
     def parse_player_stats(self, info, skaters, goalies):
         name = info['person']['fullName']
         first, last = name.split(" ", 1)
-        name_last_first = f'{last}, {first}'
-        if 'skaterStats' in info['stats']:
-            skaters[name_last_first]['games'] += 1
-            stats = self.parse_skater_stats(info['stats']['skaterStats'])
+        name = f'{last}, {first}'
+        skater_stats = info['stats'].get('skaterStats')
+        goalie_stats = info['stats'].get('goalieStats')
+        if skater_stats:
+            skaters[name]['games'] += 1
+            stats = self.parse_skater_stats(skater_stats)
             for stat in stats:
-                skaters[name_last_first][stat[0]] += stat[1]
-        if 'goalieStats' in info['stats']:
-            goalies[name_last_first]['games'] += 1
-            stats = self.parse_goalie_stats(info['stats']['goalieStats'])
+                skaters[name][stat[0]] += stat[1]
+        if goalie_stats:
+            goalies[name]['games'] += 1
+            stats = self.parse_goalie_stats(goalie_stats)
             for stat in stats:
-                goalies[name_last_first][stat[0]] += stat[1]
+                goalies[name][stat[0]] += stat[1]
         return skaters, goalies
 
-    async def parse_game_stats(self, feed: str, session: aiohttp.ClientSession) -> Tuple[Dict, Dict]:
+    async def parse_game_stats(self, game_feed: str, session: aiohttp.ClientSession) -> Tuple[Dict, Dict]:
         skaters = defaultdict(lambda: defaultdict(int))
         goalies = defaultdict(lambda: defaultdict(int))
-        resp = await session.get(feed)
+        resp = await session.get(game_feed)
         resp_json = await resp.json()
         box = resp_json['liveData']['boxscore']['teams']
         home_players = box['home']['players']
@@ -155,63 +149,68 @@ class StatsScraper:
         return dd_to_regular(skaters), dd_to_regular(goalies)
 
     def get_game_feeds(self):
-        stats_resp = requests.get(self.stats_url).json()
+        games_url = f'{self.base_stats_url}/api/v1/schedule?startDate={self.start_date}&endDate={self.end_date}'
+        stats_resp = requests.get(games_url).json()
         feeds_by_date = defaultdict(set)
         for date in stats_resp['dates']:
             LOGGER.info(f'Collecting stats for {date["totalGames"]} games on {date["date"]}')
             for game in date['games']:
                 date, feed = self.parse_date_and_feed(game)
                 feeds_by_date[date].add(feed)
-        self.game_feeds = [f for feeds in feeds_by_date.values() for f in feeds]
+        return [f for feeds in feeds_by_date.values() for f in feeds]
 
-    async def get_game_stats(self):
+    async def get_game_stats_raw(self, game_feeds):
         async with aiohttp.ClientSession() as session:
             tasks = []
-            for feed in self.game_feeds:
-                tasks.append(self.parse_game_stats(feed=feed, session=session))
-            game_stats = await asyncio.gather(*tasks, return_exceptions=True)
-            return game_stats
+            for feed in game_feeds:
+                tasks.append(self.parse_game_stats(game_feed=feed, session=session))
+            return await asyncio.gather(*tasks, return_exceptions=True)
 
-    def aggregate_game_stats(self, game_stats):
+    @staticmethod
+    def get_game_stats_parsed(game_stats):
+        parsed = {
+            'skaters': {},
+            'goalies': {}
+        }
         for skaters, goalies in game_stats:
             for skater, stats in skaters.items():
-                if skater in self.skater_stats:
+                if skater in parsed['skaters']:
                     for stat in stats:
-                        self.skater_stats[skater][stat] += stats[stat]
+                        parsed['skaters'][skater][stat] += stats[stat]
                 else:
-                    self.skater_stats[skater] = stats
+                    parsed['skaters'][skater] = stats
             for goalie, stats in goalies.items():
-                if goalie in self.goalie_stats:
+                if goalie in parsed['goalies']:
                     for stat in stats:
-                        self.goalie_stats[goalie][stat] += stats[stat]
+                        parsed['goalies'][goalie][stat] += stats[stat]
                 else:
-                    self.goalie_stats[goalie] = stats
+                    parsed['goalies'][goalie] = stats
+        return parsed
 
-    def write_stats(self):
-        LOGGER.info('Writing stats to: %s' % os.path.abspath(self.output_file))
-        with open(self.output_file, 'w') as f:
-            f.write(pprint.pformat(self.skater_stats))
-            f.write(pprint.pformat(self.goalie_stats))
+    def write_stats(self, stats):
+        current_dir = Path(__file__).parent.absolute()
+        project_dir = current_dir.joinpath('..')
+        output_dir = project_dir.joinpath('output')
+        output_file = os.path.join(output_dir, f'{self.start_date}_to_{self.end_date}.json')
 
+        LOGGER.info('Writing stats to: %s' % os.path.abspath(output_file))
 
-def main(args):
-    print(f"Started at {time.strftime('%X')}")
-    start, end = get_start_and_end_dates(args)
-
-    if not OUTPUT_DIR.is_dir():
-        Path.mkdir(OUTPUT_DIR)
-
-    scraper = StatsScraper(STATS_URL, start, end)
-
-    scraper.get_game_feeds()
-    game_stats = asyncio.run(scraper.get_game_stats())
-
-    scraper.aggregate_game_stats(game_stats)
-    scraper.write_stats()
-
-    print(f"Ended at {time.strftime('%X')}")
+        with open(output_file, 'w') as f:
+            json.dump(stats, f, indent=4)
 
 
 if __name__ == '__main__':
+    print(f"Started at {time.strftime('%X')}")
+
     args = docopt(__doc__)
-    main(args)
+    start, end = get_start_and_end_dates(args)
+
+    scraper = StatsScraper(start, end)
+
+    game_feeds = scraper.get_game_feeds()
+    game_stats_raw = asyncio.run(scraper.get_game_stats_raw(game_feeds))
+    game_stats_parsed = scraper.get_game_stats_parsed(game_stats_raw)
+
+    scraper.write_stats(game_stats_parsed)
+
+    print(f"Ended at {time.strftime('%X')}")

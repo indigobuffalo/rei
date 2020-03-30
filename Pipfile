@@ -18,6 +18,7 @@ pytz = "*"
 dashboard = {editable = true,path = "."}
 aiohttp = "*"
 python-dotenv = "*"
+click = "*"
 
 [requires]
 python_version = "3.7"
