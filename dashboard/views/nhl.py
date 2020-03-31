@@ -12,12 +12,18 @@ class NHLView(MethodView):
 
     def get(self):
         view = request.endpoint.split('.')[1]
+        args = request.args.to_dict()
+
+        filters = {}
+        if 'name' in args:
+            filters['name'] = args['name']
+
         if view == 'skaters':
-            return self.controller.get_skater_stats()
+            return self.controller.get_skater_stats(filters)
         if view == 'goalies':
-            return self.controller.get_goalie_stats()
-        if view == 'scores':
-            return 'Did you mean to hit the "skater" or "goalies" endpoint?'
+            return self.controller.get_goalie_stats(filters)
+        if view == 'all':
+            return self.controller.get_stats(filters)
 
     def post(self):
         pass
@@ -34,7 +40,7 @@ nhl_view = NHLView.as_view('nhl_view')
 bp = Blueprint('nhl', __name__, url_prefix='/nhl')
 bp.add_url_rule(
     '',
-    view_func=NHLView.as_view('scores'),
+    view_func=NHLView.as_view('all'),
     methods=['GET']
 )
 bp.add_url_rule(
