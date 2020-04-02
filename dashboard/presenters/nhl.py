@@ -1,7 +1,8 @@
 import asyncio
+import itertools
 from typing import Dict
 
-from dashboard.nhl import StatsScraper
+from dashboard.orms.nhl import StatsScraper
 
 
 class NHLController:
@@ -30,27 +31,28 @@ class NHLController:
             except KeyError:
                 raise KeyError(f"Invalid filter '{f}'")
 
-    def filter_results(self, stats: Dict, filters: Dict = None):
-
+    def _present(self, stats: Dict, filters: Dict = None):
         if not filters:
             return stats
+
         self._validate_filters(filters)
         name = filters.get('name')
         limit = filters.get('limit')
+
         if name:
             filtered = {k: v for k, v in stats.items() if name in k}
         else:
             filtered = stats
-        return filtered[0:limit] if limit else filtered
+        return dict(itertools.islice(filtered.items(), limit)) if limit else filtered
 
     def get_stats(self, filters: Dict = None):
         unfiltered = {**self.skater_stats, **self.goalie_stats}
-        return self.filter_results(unfiltered, filters)
+        return self._present(unfiltered, filters)
 
     def get_skater_stats(self, filters: Dict = None):
         unfiltered = self.skater_stats
-        return self.filter_results(unfiltered, filters)
+        return self._present(unfiltered, filters)
 
     def get_goalie_stats(self, filters: Dict = None):
         unfiltered = self.goalie_stats
-        return self.filter_results(unfiltered, filters)
+        return self._present(unfiltered, filters)

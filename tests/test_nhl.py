@@ -1,6 +1,6 @@
 import pytest
 
-from dashboard.nhl import StatsScraper
+from dashboard.orms.nhl import StatsScraper
 
 
 @pytest.fixture

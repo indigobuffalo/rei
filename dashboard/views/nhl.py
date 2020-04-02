@@ -3,7 +3,7 @@ import time
 from flask import Blueprint, request, g
 from flask.views import MethodView
 
-from dashboard.controllers.nhl import NHLController
+from dashboard.presenters.nhl import NHLController
 
 
 class NHLView(MethodView):
@@ -14,9 +14,14 @@ class NHLView(MethodView):
         view = request.endpoint.split('.')[1]
         args = request.args.to_dict()
 
+        # TODO: use marshmallow for param validation:
+        #  https://flask-marshmallow.readthedocs.io/en/latest/
+
         filters = {}
         if 'name' in args:
             filters['name'] = args['name']
+        if 'limit' in args:
+            filters['limit'] = int(args['limit'])
 
         if view == 'skaters':
             return self.controller.get_skater_stats(filters)

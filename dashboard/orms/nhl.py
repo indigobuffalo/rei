@@ -46,7 +46,6 @@ def dd_to_regular(d):
     return d
 
 
-
 class StatsScraper:
 
     def __init__(self, start_date, end_date):
@@ -99,12 +98,16 @@ class StatsScraper:
         saves = stats['saves']
         shots = stats['shots']
         shutout = 1 if (shots == saves) and (shots > 0) else 0
+        win = 1 if stats['decision'].lower() == 'w' else 0
+        loss = 1 if stats['decision'].lower() == 'l' else 0
         return [
             ('assists', assists),
             ('goals', goals),
+            ('loss', loss),
             ('saves', saves),
             ('shots', shots),
-            ('shutout', shutout)
+            ('shutout', shutout),
+            ('win', win)
         ]
 
     def parse_date_and_feed(self, game: Dict) -> Tuple[str, str]:
