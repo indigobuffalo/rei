@@ -28,3 +28,22 @@ class GarageSale:
         self.store = store
         self.url = url
 
+    @property
+    def time(self):
+        start = datetime.strftime(self.start, '%I:%M %p')
+        end = datetime.strftime(self.end, '%I:%M %p')
+        return f'{start} - {end}'
+
+    @property
+    def date(self):
+        return datetime.strftime(self.start, '%B %d, %Y')
+
+    def to_json(self):
+        return {
+            'address': self.address,
+            'date': self.date,
+            'store': self.store,
+            'phone': self.phone,
+            'time': self.time,
+            'url': self.url
+        }
