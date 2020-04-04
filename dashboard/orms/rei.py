@@ -3,12 +3,17 @@
 import sys
 from datetime import datetime
 
+import aiohttp
+import asyncio
 import requests
 from bs4 import BeautifulSoup
 from pprint import pprint
+import time
 from typing import List, Tuple
 
 from dashboard.models.garage_sale import GarageSale
+
+from ipdb import set_trace
 
 BASE_GS_URL = "https://www.rei.com/events/86150/members-only-garage-sale/"
 GS_BLOB_START = '"name" : "members only garage sale!",'
@@ -32,11 +37,8 @@ STORE_MAP = {
 
 class REIStoreORM:
 
-    def __init__(self, store):
-        self.store = store.lower()
-        resp = requests.get(BASE_GS_URL + STORE_MAP[self.store])
-        text = BeautifulSoup(resp.content, 'html.parser').get_text()
-        self.resp_lines = [ln.strip().lower() for ln in text.split('\n')]
+    def __init__(self, name):
+        self.name = name.lower()
 
     @staticmethod
     def scrub_key_val(key_and_val: List[str]) -> Tuple[str, str]:
@@ -45,11 +47,19 @@ class REIStoreORM:
         v_scrubbed = v.replace('"', '').replace(',', '').strip().title()
         return k_scrubbed, v_scrubbed
 
-    def parse_garage_sale(self):
+    async def get_garage_sale_html_lines(self, session: aiohttp.ClientSession):
+        resp = await session.get(BASE_GS_URL + STORE_MAP[self.name])
+
+        content = await resp.content.read()
+        text = BeautifulSoup(content, 'html.parser').get_text()
+        return [ln.strip().lower() for ln in text.split('\n')]
+
+    async def parse_garage_sale(self, session: aiohttp.ClientSession):
         garage_sale = {}
         found_garage_sale = False
+        resp_lines = await self.get_garage_sale_html_lines(session)
 
-        for line in self.resp_lines:
+        for line in resp_lines:
             if found_garage_sale:
                 if any(detail in line for detail in KEY_DETAILS):
                     k, v = self.scrub_key_val(line.split(':', 1))
@@ -60,8 +70,8 @@ class REIStoreORM:
                 found_garage_sale = True
         return garage_sale
 
-    def get_garage_sale(self) -> GarageSale:
-        gs_html = self.parse_garage_sale()
+    async def get_garage_sale(self, session: aiohttp.ClientSession) -> GarageSale:
+        gs_html = await self.parse_garage_sale(session)
 
         street, city = gs_html.pop('Streetaddress'), gs_html.pop('Addresslocality')
         address = f"{street.title()}, {city.title()}"
@@ -85,12 +95,19 @@ class REIStoreORM:
         )
 
 
-if __name__ == "__main__":
-    stores = sys.argv[1:] if len(sys.argv) > 1 else list(STORE_MAP.keys())
+async def get_garage_sales(stores):
+    async with aiohttp.ClientSession() as session:
+        tasks = []
+        for store in stores:
+            rso = REIStoreORM(store)
+            tasks.append(rso.get_garage_sale(session))
+        return await asyncio.gather(*tasks, return_exceptions=True)
 
-    for store in stores:
-        print("\n")
-        rso = REIStoreORM(store)
-        garage_sale = rso.get_garage_sale().to_json()
-        pprint(garage_sale)
+
+if __name__ == "__main__":
+    print(f"Started at {time.strftime('%X')}")
+    stores = sys.argv[1:] if len(sys.argv) > 1 else list(STORE_MAP.keys())
+    garage_sales = asyncio.run(get_garage_sales(stores))
+    pprint([gs.to_json() for gs in garage_sales])
+    print(f"Ended at {time.strftime('%X')}")
 
