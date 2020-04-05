@@ -1,6 +1,7 @@
 from flask import Flask
 
 from dashboard.views.nhl import bp as nhl_bp
+from dashboard.views.rei import bp as rei_bp
 
 
 def create_app():
@@ -11,5 +12,6 @@ def create_app():
         return 'Hello, welcome home.'
 
     app.register_blueprint(nhl_bp)
+    app.register_blueprint(rei_bp)
 
     return app

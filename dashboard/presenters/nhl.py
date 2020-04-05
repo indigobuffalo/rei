@@ -5,7 +5,7 @@ from typing import Dict
 from dashboard.orms.nhl import StatsScraper
 
 
-class NHLController:
+class NHLPresenter:
 
     FILTERS_MAP = {
         'name': str,

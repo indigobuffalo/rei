@@ -5,7 +5,6 @@ from datetime import datetime
 
 import aiohttp
 import asyncio
-import requests
 from bs4 import BeautifulSoup
 from pprint import pprint
 import time
@@ -13,7 +12,6 @@ from typing import List, Tuple
 
 from dashboard.models.garage_sale import GarageSale
 
-from ipdb import set_trace
 
 BASE_GS_URL = "https://www.rei.com/events/86150/members-only-garage-sale/"
 GS_BLOB_START = '"name" : "members only garage sale!",'
@@ -95,7 +93,9 @@ class REIStoreORM:
         )
 
 
-async def get_garage_sales(stores):
+async def get_garage_sales(stores: List[str] = None):
+    stores = stores or list(STORE_MAP.keys())
+
     async with aiohttp.ClientSession() as session:
         tasks = []
         for store in stores:

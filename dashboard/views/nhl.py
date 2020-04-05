@@ -3,12 +3,12 @@ import time
 from flask import Blueprint, request, g
 from flask.views import MethodView
 
-from dashboard.presenters.nhl import NHLController
+from dashboard.presenters.nhl import NHLPresenter
 
 
 class NHLView(MethodView):
     def __init__(self):
-        self.controller = NHLController(g.start_date, g.end_date)
+        self.presenter = NHLPresenter(g.start_date, g.end_date)
 
     def get(self):
         view = request.endpoint.split('.')[1]
@@ -24,11 +24,11 @@ class NHLView(MethodView):
             filters['limit'] = int(args['limit'])
 
         if view == 'skaters':
-            return self.controller.get_skater_stats(filters)
+            return self.presenter.get_skater_stats(filters)
         if view == 'goalies':
-            return self.controller.get_goalie_stats(filters)
+            return self.presenter.get_goalie_stats(filters)
         if view == 'all':
-            return self.controller.get_stats(filters)
+            return self.presenter.get_stats(filters)
 
     def post(self):
         pass
