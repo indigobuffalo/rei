@@ -15,7 +15,7 @@ class NHLPresenter:
     def __init__(self, start, end):
         scraper = StatsScraper(start, end)
         game_feeds = scraper.get_game_feeds()
-        stats_raw = asyncio.run(scraper.get_game_stats_raw(game_feeds))
+        stats_raw = asyncio.run(scraper.get_games_stats_raw(game_feeds))
 
         self.stats = scraper.get_player_stats(stats_raw)
         self.skater_stats = self.stats['skaters']
