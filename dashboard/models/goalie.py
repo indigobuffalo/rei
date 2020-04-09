@@ -55,6 +55,7 @@ class Goalie:
         self.wins = wins
 
     def __add__(self, other: Goalie) -> Goalie:
+        team = self.team if max(self.game_dates) > max(other.game_dates) else other.team
         return Goalie(
             games=self.games + other.games,
             game_dates=self.game_dates + other.game_dates,
@@ -68,7 +69,7 @@ class Goalie:
             shots_ev=self.shots_ev + other.shots_ev,
             shots_pp=self.shots_pp + other.shots_pp,
             shots_sh=self.shots_sh + other.shots_sh,
-            team=self.team,
+            team=team,
             wins=self.wins + other.wins
         )
 
