@@ -122,12 +122,19 @@ class StatsScraper:
 
     @staticmethod
     def instantiate_skater(game_date: datetime, name: str, team: str, position: str, stats: Dict) -> Skater:
+        toi_str = stats['timeOnIce']
+        toi = timedelta(minutes=int(toi_str.split(':')[0]), seconds=int(toi_str.split(':')[1]))
+        toi_ev_str = stats['evenTimeOnIce']
+        toi_ev = timedelta(minutes=int(toi_ev_str.split(':')[0]), seconds=int(toi_ev_str.split(':')[1]))
+        toi_pp_str = stats['powerPlayTimeOnIce']
+        toi_pp = timedelta(minutes=int(toi_pp_str.split(':')[0]), seconds=int(toi_pp_str.split(':')[1]))
+        toi_sh_str = stats['shortHandedTimeOnIce']
+        toi_sh = timedelta(minutes=int(toi_sh_str.split(':')[0]), seconds=int(toi_sh_str.split(':')[1]))
         return Skater(
             assists=stats['assists'],
             assists_pp=stats['powerPlayAssists'],
             assists_sh=stats['shortHandedAssists'],
             blocks=stats['blocked'],
-            faceoff_pct=stats.get('faceOffPct'),
             faceoffs=stats['faceoffTaken'],
             faceoffs_won=stats['faceOffWins'],
             game_dates=[game_date],
@@ -139,14 +146,14 @@ class StatsScraper:
             name=name,
             pim=stats['penaltyMinutes'],
             plus_minus=stats['plusMinus'],
-            position=position,
+            positions=[position],
             shots=stats['shots'],
             takeaways=stats['takeaways'],
             team=team,
-            toi=stats['timeOnIce'],
-            toi_ev=stats['evenTimeOnIce'],
-            toi_pp=stats['powerPlayTimeOnIce'],
-            toi_sh=stats['shortHandedTimeOnIce']
+            toi=[toi],
+            toi_ev=[toi_ev],
+            toi_pp=[toi_pp],
+            toi_sh=[toi_sh]
         )
 
     def parse_team_stats(self, team: str, game_date: datetime, players: Dict) -> Dict[str, Dict]:
@@ -219,7 +226,7 @@ class StatsScraper:
 
     @staticmethod
     def get_player_stats(games_dicts: List[Dict]):
-        cumulative = {
+        totals = {
             'skaters': {},
             'goalies': {}
         }
@@ -227,17 +234,16 @@ class StatsScraper:
 
         for game_dict in games_dicts:
             for name, model in game_dict['skaters'].items():
-                if name in cumulative['skaters']:
-                    # TODO: append to existing
-                    pass
+                if name in totals['skaters']:
+                    totals['skaters'][name] += model
                 else:
-                    cumulative['skaters'][name] = model
+                    totals['skaters'][name] = model
             for name, model in game_dict['goalies'].items():
-                if name in cumulative['goalies']:
-                    cumulative['goalies'][name] += model
+                if name in totals['goalies']:
+                    totals['goalies'][name] += model
                 else:
-                    cumulative['goalies'][name] = model
-        return cumulative
+                    totals['goalies'][name] = model
+        return totals
 
     def write_stats(self, stats):
         current_dir = Path(__file__).parent.absolute()

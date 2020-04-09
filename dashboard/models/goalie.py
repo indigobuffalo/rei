@@ -28,12 +28,10 @@ class Goalie:
             self.wins = wins
         else:
             self.wins = 1 if decision.upper() == 'W' else 0
-
         if losses:
             self.losses = losses
         else:
             self.losses = 1 if decision.upper() == 'L' else 0
-
         self.games = games
         self.game_dates = game_dates
         self.losses = losses
@@ -56,6 +54,8 @@ class Goalie:
 
     def __add__(self, other: Goalie) -> Goalie:
         team = self.team if max(self.game_dates) > max(other.game_dates) else other.team
+        if self.name != other.name:
+            raise ValueError(f'Cannot aggregate stats for two different players: {self.name}')
         return Goalie(
             games=self.games + other.games,
             game_dates=self.game_dates + other.game_dates,
