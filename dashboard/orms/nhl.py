@@ -100,11 +100,12 @@ class StatsScraper:
         return game_date, self.base_stats_url + game['link']
 
     @staticmethod
-    def instantiate_goalie(name: str, team: str, stats: Dict) -> Goalie:
+    def instantiate_goalie(game_date: datetime, name: str, team: str, stats: Dict) -> Goalie:
         decision = stats['decision']
         loss = 1 if decision.upper() == 'L' else 0
         win = 1 if decision.upper() == 'W' else 0
         return Goalie(
+            game_dates=[game_date],
             losses=loss,
             name=name,
             saves=stats['saves'],
@@ -120,7 +121,7 @@ class StatsScraper:
         )
 
     @staticmethod
-    def instantiate_skater(name: str, team: str, position: str, stats: Dict) -> Skater:
+    def instantiate_skater(game_date: datetime, name: str, team: str, position: str, stats: Dict) -> Skater:
         return Skater(
             assists=stats['assists'],
             assists_pp=stats['powerPlayAssists'],
@@ -129,6 +130,7 @@ class StatsScraper:
             faceoff_pct=stats.get('faceOffPct'),
             faceoffs=stats['faceoffTaken'],
             faceoffs_won=stats['faceOffWins'],
+            game_dates=[game_date],
             giveaways=stats['giveaways'],
             goals=stats['goals'],
             goals_pp=stats['powerPlayGoals'],
@@ -147,7 +149,7 @@ class StatsScraper:
             toi_sh=stats['shortHandedTimeOnIce']
         )
 
-    def parse_team_stats(self, team: str, players: Dict) -> Dict[str, Dict]:
+    def parse_team_stats(self, team: str, game_date: datetime, players: Dict) -> Dict[str, Dict]:
         team_stats = {
             'skaters': {},
             'goalies': {}
@@ -158,6 +160,7 @@ class StatsScraper:
             if self.is_skater(player):
                 stats = player['stats']['skaterStats']
                 skater = self.instantiate_skater(
+                    game_date=game_date,
                     name=name,
                     team=team,
                     position=position,
@@ -167,6 +170,7 @@ class StatsScraper:
             elif self.is_goalie(player):
                 stats = player['stats']['goalieStats']
                 goalie = self.instantiate_goalie(
+                    game_date=game_date,
                     name=name,
                     team=team,
                     stats=stats
@@ -184,9 +188,11 @@ class StatsScraper:
         home_players = box['home']['players']
         away_team = box['away']['team']['name']
         away_players = box['away']['players']
+        game_date_str = resp_json['gameData']['datetime']['dateTime'].split('T')[0]
+        game_date = datetime.strptime(game_date_str, '%Y-%m-%d')
 
-        away_stats = self.parse_team_stats(home_team, home_players)
-        home_stats = self.parse_team_stats(away_team, away_players)
+        away_stats = self.parse_team_stats(home_team, game_date, home_players)
+        home_stats = self.parse_team_stats(away_team, game_date, away_players)
 
         game_stats['skaters'] = {**home_stats['skaters'], **away_stats['skaters']}
         game_stats['goalies'] = {**home_stats['goalies'], **away_stats['goalies']}
@@ -231,8 +237,6 @@ class StatsScraper:
                     cumulative['goalies'][name] += model
                 else:
                     cumulative['goalies'][name] = model
-        import ipdb
-        ipdb.set_trace()
         return cumulative
 
     def write_stats(self, stats):

@@ -1,5 +1,6 @@
 """Model representing an nhl skater"""
 import datetime
+from typing import List
 
 
 class Skater:
@@ -12,6 +13,7 @@ class Skater:
             faceoff_pct: float,
             faceoffs: int,
             faceoffs_won: int,
+            game_dates: List,
             giveaways: int,
             goals: int,
             goals_pp: int,
@@ -28,6 +30,7 @@ class Skater:
             toi_ev: datetime.datetime,
             toi_pp: datetime.datetime,
             toi_sh: datetime.datetime,
+            games: int = 1
     ):
         self.assists = assists
         self.assists_pp = assists_pp
@@ -36,7 +39,8 @@ class Skater:
         self.faceoff_pct = faceoff_pct
         self.faceoffs = faceoffs
         self.faceoffs_won = faceoffs_won
-        self.games = 1
+        self.games = games
+        self.game_dates = game_dates
         self.giveaways = giveaways
         self.goals = goals
         self.goals_pp = goals_pp

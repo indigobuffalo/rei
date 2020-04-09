@@ -1,11 +1,14 @@
 """Model representing an nhl goalie"""
 from __future__ import annotations
 
+from typing import List
+
 
 class Goalie:
 
     def __init__(
             self,
+            game_dates: List,
             name: str,
             saves: int,
             saves_ev: int,
@@ -32,6 +35,7 @@ class Goalie:
             self.losses = 1 if decision.upper() == 'L' else 0
 
         self.games = games
+        self.game_dates = game_dates
         self.losses = losses
         self.name = name
         self.position = 'G'
@@ -53,6 +57,7 @@ class Goalie:
     def __add__(self, other: Goalie) -> Goalie:
         return Goalie(
             games=self.games + other.games,
+            game_dates=self.game_dates + other.game_dates,
             losses=self.losses + other.losses,
             name=self.name,
             saves=self.saves + other.saves,
