@@ -11,24 +11,7 @@ class NHLView(MethodView):
         self.presenter = NHLPresenter(g.start_date, g.end_date)
 
     def get(self):
-        view = request.endpoint.split('.')[1]
-        args = request.args.to_dict()
-
-        # TODO: use marshmallow for param validation:
-        #  https://flask-marshmallow.readthedocs.io/en/latest/
-
-        filters = {}
-        if 'name' in args:
-            filters['name'] = args['name']
-        if 'limit' in args:
-            filters['limit'] = int(args['limit'])
-
-        if view == 'skaters':
-            return self.presenter.get_skater_stats(filters)
-        if view == 'goalies':
-            return self.presenter.get_goalie_stats(filters)
-        if view == 'all':
-            return self.presenter.get_stats(filters)
+        return self.presenter.get_stats()
 
     def post(self):
         pass

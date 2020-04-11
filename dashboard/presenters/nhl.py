@@ -1,5 +1,5 @@
 import asyncio
-import itertools
+from datetime import datetime
 from typing import Dict
 
 from dashboard.orms.nhl import StatsScraper
@@ -7,52 +7,34 @@ from dashboard.orms.nhl import StatsScraper
 
 class NHLPresenter:
 
-    FILTERS_MAP = {
-        'name': str,
-        'limit': int,
-    }
-
-    def __init__(self, start, end):
+    def __init__(self, start: str, end: str):
         scraper = StatsScraper(start, end)
+        self.start = datetime.strptime(start, '%Y-%m-%d')
+        self.end = datetime.strptime(end, '%Y-%m-%d')
+        self.days = (self.end - self.start).days + 1
+
         game_feeds = scraper.get_game_feeds()
         stats_raw = asyncio.run(scraper.get_games_stats_raw(game_feeds))
-
         self.stats = scraper.get_player_stats(stats_raw)
-        self.skater_stats = self.stats['skaters']
-        self.goalie_stats = self.stats['goalies']
 
-    def _validate_filters(self, filters: Dict):
-        for f, f_val in filters.items():
-            try:
-                if self.FILTERS_MAP[f] != type(f_val):
-                    raise ValueError(
-                        f"Invalid type '{type(f_val)}' for filter '{f}'"
-                    )
-            except KeyError:
-                raise KeyError(f"Invalid filter '{f}'")
+    def _present(self) -> Dict:
+        presented = {
+            'metadata': {
+                'dates': {
+                    'days': self.days,
+                    'start': datetime.strftime(self.start, '%Y-%m-%d'),
+                    'end': datetime.strftime(self.end, '%Y-%m-%d')
+                },
+                'games': self.stats['games']
+            },
+            'skaters': {},
+            'goalies': {}
+        }
+        for skater, stats in self.stats['skaters'].items():
+            presented['skaters'][skater] = stats.json_normalized()
+        for goalie, stats in self.stats['goalies'].items():
+            presented['goalies'][goalie] = stats.json_normalized()
+        return presented
 
-    def _present(self, stats: Dict, filters: Dict = None):
-        if not filters:
-            return stats
-
-        self._validate_filters(filters)
-        name = filters.get('name')
-        limit = filters.get('limit')
-
-        if name:
-            filtered = {k: v for k, v in stats.items() if name in k}
-        else:
-            filtered = stats
-        return dict(itertools.islice(filtered.items(), limit)) if limit else filtered
-
-    def get_stats(self, filters: Dict = None):
-        unfiltered = {**self.skater_stats, **self.goalie_stats}
-        return self._present(unfiltered, filters)
-
-    def get_skater_stats(self, filters: Dict = None):
-        unfiltered = self.skater_stats
-        return self._present(unfiltered, filters)
-
-    def get_goalie_stats(self, filters: Dict = None):
-        unfiltered = self.goalie_stats
-        return self._present(unfiltered, filters)
+    def get_stats(self):
+        return self._present()

@@ -1,7 +1,9 @@
 """Model representing an nhl skater"""
 from __future__ import annotations
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import List
+
+from dashboard.util.misc import duration_to_min_and_sec
 
 
 class Skater:
@@ -13,7 +15,7 @@ class Skater:
             blocks: int,
             faceoffs: int,
             faceoffs_won: int,
-            game_dates: List,
+            game_dates: List[datetime],
             giveaways: int,
             goals: int,
             goals_pp: int,
@@ -89,3 +91,12 @@ class Skater:
             toi_pp=self.toi_pp + other.toi_pp,
             toi_sh=self.toi_sh + other.toi_sh
         )
+
+    def json_normalized(self):
+        normalized = self.__dict__
+        normalized['game_dates'] = [datetime.strftime(d, '%m/%d') for d in self.game_dates]
+        normalized['toi'] = [duration_to_min_and_sec(toi) for toi in self.toi]
+        normalized['toi_ev'] = [duration_to_min_and_sec(toi) for toi in self.toi_ev]
+        normalized['toi_pp'] = [duration_to_min_and_sec(toi) for toi in self.toi_pp]
+        normalized['toi_sh'] = [duration_to_min_and_sec(toi) for toi in self.toi_sh]
+        return normalized

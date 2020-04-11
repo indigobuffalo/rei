@@ -54,7 +54,7 @@ def get_name_last_first(name: str):
 
 class StatsScraper:
 
-    def __init__(self, start_date, end_date):
+    def __init__(self, start_date: str, end_date: str):
         self.base_stats_url = 'https://statsapi.web.nhl.com'
 
         self.start_date = start_date
@@ -228,7 +228,8 @@ class StatsScraper:
     def get_player_stats(games_dicts: List[Dict]):
         totals = {
             'skaters': {},
-            'goalies': {}
+            'goalies': {},
+            'games': len(games_dicts)
         }
         LOGGER.info(f'Recorded {len(games_dicts)} games total.')
 
@@ -247,7 +248,7 @@ class StatsScraper:
 
     def write_stats(self, stats):
         current_dir = Path(__file__).parent.absolute()
-        project_dir = current_dir.joinpath('..')
+        project_dir = current_dir.joinpath('../..')
         output_dir = project_dir.joinpath('output')
         output_file = os.path.join(output_dir, f'{self.start_date}_to_{self.end_date}.json')
         LOGGER.info('Writing stats to: %s' % os.path.abspath(output_file))
@@ -263,5 +264,6 @@ if __name__ == '__main__':
     games_feeds = scraper.get_game_feeds()
     games_stats = asyncio.run(scraper.get_games_stats_raw(games_feeds))
     players_stats = scraper.get_player_stats(games_stats)
-    scraper.write_stats(players_stats)
+    # TODO: fix write_stats method
+    # scraper.write_stats(players_stats)
     print(f"Ended at {time.strftime('%X')}")

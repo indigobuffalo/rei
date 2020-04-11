@@ -1,6 +1,7 @@
 """Model representing an nhl goalie"""
 from __future__ import annotations
 
+from datetime import datetime
 from typing import List
 
 
@@ -8,7 +9,7 @@ class Goalie:
 
     def __init__(
             self,
-            game_dates: List,
+            game_dates: List[datetime],
             name: str,
             saves: int,
             saves_ev: int,
@@ -45,10 +46,10 @@ class Goalie:
         self.shots_ev = shots_ev
         self.shots_pp = shots_pp
         self.shots_sh = shots_sh
-        self.save_percentage = round(saves/shots, 3) if shots else None
-        self.save_percentage_ev = round(saves_ev/shots_ev, 3) if shots_ev else None
-        self.save_percentage_pp = round(saves_pp/shots_pp, 3) if shots_pp else None
-        self.save_percentage_sh = round(saves_sh/shots_sh, 3) if shots_sh else None
+        self.save_percentage = round(saves/shots, 3) if shots else 'N/A'
+        self.save_percentage_ev = round(saves_ev/shots_ev, 3) if shots_ev else 'N/A'
+        self.save_percentage_pp = round(saves_pp/shots_pp, 3) if shots_pp else 'N/A'
+        self.save_percentage_sh = round(saves_sh/shots_sh, 3) if shots_sh else 'N/A'
         self.team = team
         self.wins = wins
 
@@ -73,3 +74,7 @@ class Goalie:
             wins=self.wins + other.wins
         )
 
+    def json_normalized(self):
+        normalized = self.__dict__
+        normalized['game_dates'] = [datetime.strftime(d, '%m/%d') for d in self.game_dates]
+        return normalized
