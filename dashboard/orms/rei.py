@@ -108,6 +108,8 @@ if __name__ == "__main__":
     print(f"Started at {time.strftime('%X')}")
     stores = sys.argv[1:] if len(sys.argv) > 1 else list(STORE_MAP.keys())
     garage_sales = asyncio.run(get_garage_sales(stores))
+    import ipdb
+    ipdb.set_trace()
     pprint([gs.to_json() for gs in garage_sales])
     print(f"Ended at {time.strftime('%X')}")
 

@@ -9,12 +9,7 @@ class REIView(MethodView):
         self.presenter = REIPresenter()
 
     def get(self):
-        args = request.args.to_dict()
-
-        filters = {}
-        if 'stores' in args:
-            filters['stores'] = args['stores'].split(',')
-        return jsonify(self.presenter.get_garage_sales(filters))
+        return jsonify(self.presenter.get_garage_sales())
 
     def post(self):
         pass

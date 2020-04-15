@@ -20,7 +20,7 @@ class GarageSale:
         self.url = url
 
     @property
-    def time(self):
+    def hours(self):
         start = datetime.strftime(self.start, '%I:%M %p')
         end = datetime.strftime(self.end, '%I:%M %p')
         return f'{start} - {end}'
@@ -28,4 +28,5 @@ class GarageSale:
     @property
     def date(self):
         return datetime.strftime(self.start, '%B %d, %Y')
+
 
