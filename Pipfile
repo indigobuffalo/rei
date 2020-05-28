@@ -19,6 +19,8 @@ dashboard = {editable = true,path = "."}
 aiohttp = "*"
 python-dotenv = "*"
 click = "*"
+flask-sqlalchemy = "*"
+pyyaml = "*"
 
 [requires]
 python_version = "3.7"
