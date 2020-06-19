@@ -76,5 +76,5 @@ class Goalie:
 
     def json_normalized(self):
         normalized = self.__dict__
-        normalized['game_dates'] = [datetime.strftime(d, '%m/%d') for d in self.game_dates]
+        normalized['game_dates'] = [datetime.strftime(d, '%Y/%m/%d') for d in self.game_dates]
         return normalized

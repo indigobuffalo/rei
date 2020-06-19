@@ -10,7 +10,7 @@ Examples:
   get_nhl.py --start 02-02 --end 02-04
   get_nhl.py --start 2019-04-11 --end 2019-05-12
   get_nhl.py 7 
-    
+
 Options:
   --start=<start_date>     Start date, in format %Y-%m-%d.
   --end=<end_date>         End date, in format %Y-%m-%d.
@@ -38,6 +38,14 @@ from dashboard.models.goalie import Goalie
 from dashboard.models.skater import Skater
 
 LOGGER = setup_stream_logger()
+
+GAME_TYPES = {
+    'A': 'all-star',
+    'P': 'postseason',
+    'PR': 'preseason',
+    'R': 'regular',
+    'WA': 'all-star'    # not sure why, but they distinguish "all-star" from "western all-star"
+}
 
 
 def dd_to_regular(d):
@@ -191,12 +199,18 @@ class StatsScraper:
         resp_json = await resp.json()
 
         box = resp_json['liveData']['boxscore']['teams']
+        game_date_str = resp_json['gameData']['datetime']['dateTime'].split('T')[0]
+        game_date = datetime.strptime(game_date_str, '%Y-%m-%d')
+        game_type = GAME_TYPES[resp_json['gameData']['game']['type']]
+
+        if game_type != 'regular':
+            LOGGER.info(f'{game_type.title()} game on {game_date}... skipping stat collection')
+            return {'skaters': {}, 'goalies': {}}
+
         home_team = box['home']['team']['name']
         home_players = box['home']['players']
         away_team = box['away']['team']['name']
         away_players = box['away']['players']
-        game_date_str = resp_json['gameData']['datetime']['dateTime'].split('T')[0]
-        game_date = datetime.strptime(game_date_str, '%Y-%m-%d')
 
         away_stats = self.parse_team_stats(home_team, game_date, home_players)
         home_stats = self.parse_team_stats(away_team, game_date, away_players)

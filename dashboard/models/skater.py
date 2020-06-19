@@ -94,7 +94,7 @@ class Skater:
 
     def json_normalized(self):
         normalized = self.__dict__
-        normalized['game_dates'] = [datetime.strftime(d, '%m/%d') for d in self.game_dates]
+        normalized['game_dates'] = [datetime.strftime(d, '%Y/%m/%d') for d in self.game_dates]
         normalized['toi'] = [duration_to_min_and_sec(toi) for toi in self.toi]
         normalized['toi_ev'] = [duration_to_min_and_sec(toi) for toi in self.toi_ev]
         normalized['toi_pp'] = [duration_to_min_and_sec(toi) for toi in self.toi_pp]
