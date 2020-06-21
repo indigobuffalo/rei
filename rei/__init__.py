@@ -1,11 +1,10 @@
 from pathlib import Path
 
 import yaml
-from flask import Flask
+from flask import Flask, jsonify
 from flask_sqlalchemy import SQLAlchemy
 
-from dashboard.views.nhl import bp as nhl_bp
-from dashboard.views.rei import bp as rei_bp
+from rei.views.sales import bp as sales_bp
 
 db = SQLAlchemy()
 
@@ -18,12 +17,11 @@ def create_app():
         cfg = yaml.load(ymlfile, Loader=yaml.SafeLoader)
     app.config.from_mapping(cfg)
 
+    app.register_blueprint(sales_bp)
+
     @app.route('/')
     def route():
-        return 'Hello, welcome home.'
-
-    app.register_blueprint(nhl_bp)
-    app.register_blueprint(rei_bp)
+        return jsonify([bp.url_prefix for bp in app.blueprints.values()])
 
     db.init_app(app)
 

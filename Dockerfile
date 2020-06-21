@@ -1,7 +1,7 @@
 FROM python:3.7.7-slim-buster
 
-COPY . /dashboard
-WORKDIR /dashboard
+COPY . /rei
+WORKDIR /rei
 
 # clean workspace
 RUN rm -rf build/ dist/ *.egg-info
@@ -19,7 +19,7 @@ RUN pipenv update --dev
 #   pipenv check  ( broken per: https://github.com/pypa/pipenv/issues/4188 )
 
 # default port for Flask
-EXPOSE 5000
+EXPOSE 5001
 
-ENTRYPOINT pipenv run flask run --host=0.0.0.0
+ENTRYPOINT pipenv run flask run --host=0.0.0.0 --port=5001
 

@@ -1,5 +1,5 @@
 from sqlalchemy.dialects.postgresql import JSON
-from dashboard import db
+from rei import db
 
 
 class Result(db.Model):

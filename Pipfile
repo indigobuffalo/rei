@@ -13,14 +13,13 @@ flask = "*"
 asyncio = "*"
 requests = "*"
 beautifulsoup4 = "*"
-docopt = "*"
 pytz = "*"
-dashboard = {editable = true,path = "."}
 aiohttp = "*"
 python-dotenv = "*"
 click = "*"
 flask-sqlalchemy = "*"
 pyyaml = "*"
+rei = {editable = true, path = "."}
 
 [requires]
 python_version = "3.7"
